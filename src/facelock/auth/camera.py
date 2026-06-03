@@ -1,47 +1,67 @@
+import typing as t
 import cv2
+import numpy as np
+
 
 class Camera:
-    def __init__(self, camera_index: int = 0):
-        self.camera_index = camera_index
-        self.cap = None
+    """Simple camera wrapper around OpenCV's VideoCapture.
 
-    def open(self) ->bool:
+    Provides `open`, `read_frame`, and `close` helpers and supports
+    use as a context manager.
+    """
+
+    def __init__(self, camera_index: int = 0) -> None:
+        self.camera_index = camera_index
+        self.cap: t.Optional[cv2.VideoCapture] = None
+
+    def open(self) -> bool:
         self.cap = cv2.VideoCapture(self.camera_index)
-        return self.cap.isOpened()
-    
-    def read_frame(self):
+        return bool(self.cap and self.cap.isOpened())
+
+    def read_frame(self) -> t.Optional[np.ndarray]:
         if self.cap is None or not self.cap.isOpened():
-            raise RuntimeError("camera is not open")
-        
+            raise RuntimeError("Camera is not open")
+
         success, frame = self.cap.read()
         if not success:
             return None
-        
         return frame
-    
-    def close(self)->None:
+
+    def close(self) -> None:
         if self.cap is not None:
-            self.cap.release()
-            self.cap = None
+            try:
+                self.cap.release()
+            finally:
+                self.cap = None
+
+    def __enter__(self) -> "Camera":
+        if not self.open():
+            raise RuntimeError(f"Could not open camera index {self.camera_index}")
+        return self
+
+    def __exit__(self, exc_type, exc, tb) -> None:
+        self.close()
+
 
 def preview_camera(camera_index: int = 0) -> None:
-    camera = Camera(camera_index)
-    if not camera.open():
-        raise RuntimeError("could not Open Camera")
-    
+    """Open a window showing the camera feed until the user presses 'q'."""
+    cam = Camera(camera_index)
+    if not cam.open():
+        raise RuntimeError(f"Could not open camera index {camera_index}")
+
     try:
         while True:
-            frame = camera.read_frame()
+            frame = cam.read_frame()
             if frame is None:
                 continue
 
             cv2.imshow("FaceLock Camera", frame)
-
             if cv2.waitKey(1) & 0xFF == ord("q"):
                 break
     finally:
-        camera.close()
-        cv2.destoryAllWindows()
+        cam.close()
+        cv2.destroyAllWindows()
+
 
 if __name__ == "__main__":
     preview_camera()

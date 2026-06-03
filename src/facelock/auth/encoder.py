@@ -3,7 +3,9 @@ import numpy as np
 import face_recognition
 
 def _to_rgb(frame: np.ndarray) -> np.ndarray:
-    return frame[:, :, ::-1]
+    # ensure the array is RGB and contiguous in memory for dlib
+    rgb = frame[:, :, ::-1]
+    return np.ascontiguousarray(rgb)
 
 def encode_face(crop: np.ndarray, model: str = "small") -> t.Optional[np.ndarray]:
     """
@@ -11,6 +13,9 @@ def encode_face(crop: np.ndarray, model: str = "small") -> t.Optional[np.ndarray
     `model` can be "small" (faster) or "large" (more accurate).
     """
     rgb = _to_rgb(crop)
+    # ensure dtype is uint8 and memory-contiguous
+    if rgb.dtype != np.uint8:
+        rgb = rgb.astype(np.uint8)
     encodings = face_recognition.face_encodings(rgb, model=model)
     return np.array(encodings[0]) if encodings else None
 

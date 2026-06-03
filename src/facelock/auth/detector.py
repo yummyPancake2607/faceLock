@@ -18,7 +18,11 @@ def find_face_locations(frame: np.ndarray, model: str = "hog") -> t.List[t.Tuple
 
 
 def crop_from_location(frame: np.ndarray, loc: t.Tuple[int, int, int, int]) -> np.ndarray:
-    top, right, bottom, left = loc
+    # Accept either (top, right, bottom, left) or (top, left, bottom, right)
+    top = min(loc[0], loc[2])
+    bottom = max(loc[0], loc[2])
+    left = min(loc[1], loc[3])
+    right = max(loc[1], loc[3])
     return frame[top:bottom, left:right].copy()
 
 
