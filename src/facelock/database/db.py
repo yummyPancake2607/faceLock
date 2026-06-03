@@ -157,11 +157,102 @@ def list_locked_apps(db_path: Optional[str] = None) -> List[Dict]:
     return out
 
 
+def find_locked_app(
+    *,
+    name: Optional[str] = None,
+    exec_cmd: Optional[str] = None,
+    desktop_file: Optional[str] = None,
+    db_path: Optional[str] = None,
+) -> Optional[Dict]:
+    """Find a locked app record using one or more identity fields."""
+    init_db(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    clauses = []
+    values = []
+    if desktop_file:
+        clauses.append("desktop_file = ?")
+        values.append(desktop_file)
+    if exec_cmd:
+        clauses.append("exec = ?")
+        values.append(exec_cmd)
+    if name:
+        clauses.append("name = ?")
+        values.append(name)
+    if not clauses:
+        conn.close()
+        return None
+    query = "SELECT id, name, exec, icon, locked, desktop_file FROM locked_apps WHERE " + " OR ".join(clauses) + " LIMIT 1"
+    cur.execute(query, values)
+    row = cur.fetchone()
+    conn.close()
+    if row is None:
+        return None
+    return {
+        "id": row["id"],
+        "name": row["name"],
+        "exec": row["exec"],
+        "icon": row["icon"],
+        "locked": bool(row["locked"]),
+        "desktop_file": row["desktop_file"],
+    }
+
+
+def upsert_locked_app(
+    name: str,
+    exec_cmd: str,
+    icon: Optional[str] = None,
+    desktop_file: Optional[str] = None,
+    locked: bool = True,
+    db_path: Optional[str] = None,
+) -> int:
+    """Insert a locked app or update the existing row if it already exists."""
+    existing = find_locked_app(name=name, exec_cmd=exec_cmd, desktop_file=desktop_file, db_path=db_path)
+    if existing is None:
+        return add_locked_app(name, exec_cmd, icon=icon, desktop_file=desktop_file, locked=locked, db_path=db_path)
+
+    init_db(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute(
+        "UPDATE locked_apps SET name = ?, exec = ?, icon = ?, locked = ?, desktop_file = ? WHERE id = ?",
+        (name, exec_cmd, icon, 1 if locked else 0, desktop_file, existing["id"]),
+    )
+    conn.commit()
+    conn.close()
+    return existing["id"]
+
+
 def set_locked(app_id: int, locked: bool, db_path: Optional[str] = None) -> None:
     init_db(db_path)
     conn = get_connection(db_path)
     cur = conn.cursor()
     cur.execute("UPDATE locked_apps SET locked = ? WHERE id = ?", (1 if locked else 0, app_id))
+    conn.commit()
+    conn.close()
+
+
+def set_locked_by_identity(
+    *,
+    name: Optional[str] = None,
+    exec_cmd: Optional[str] = None,
+    desktop_file: Optional[str] = None,
+    locked: bool = True,
+    db_path: Optional[str] = None,
+) -> bool:
+    """Toggle lock status for an app matching the provided identity."""
+    existing = find_locked_app(name=name, exec_cmd=exec_cmd, desktop_file=desktop_file, db_path=db_path)
+    if existing is None:
+        return False
+    set_locked(existing["id"], locked, db_path=db_path)
+    return True
+
+
+def delete_locked_app(app_id: int, db_path: Optional[str] = None) -> None:
+    init_db(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("DELETE FROM locked_apps WHERE id = ?", (app_id,))
     conn.commit()
     conn.close()
 

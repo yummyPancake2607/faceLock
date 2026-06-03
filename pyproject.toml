@@ -1,0 +1,17 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "facelock"
+version = "0.1.0"
+description = "Linux face-auth app locker"
+requires-python = ">=3.14"
+dependencies = [
+	"numpy",
+	"PyQt6",
+]
+
+[project.scripts]
+facelock = "src.facelock.app:main"
+
