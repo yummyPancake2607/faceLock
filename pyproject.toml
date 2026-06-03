@@ -10,6 +10,8 @@ requires-python = ">=3.14"
 dependencies = [
 	"numpy",
 	"PyQt6",
+	"opencv-python",
+	"face-recognition",
 ]
 
 [project.scripts]

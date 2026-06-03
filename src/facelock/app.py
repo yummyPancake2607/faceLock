@@ -11,6 +11,7 @@ if __package__ in (None, ""):
         sys.path.insert(0, str(project_root))
 
 from src.facelock.database import db
+from src.facelock.auth.system_auth import require_system_password
 from src.facelock.gui.main_window import build_app
 
 
@@ -28,6 +29,8 @@ def main(argv: list[str] | None = None) -> int:
 
     db.init_db(args.db_path)
     app, window = build_app(scan_paths=args.scan_paths, db_path=args.db_path)
+    if not require_system_password(window):
+        return 1
     window.show()
     return app.exec()
 

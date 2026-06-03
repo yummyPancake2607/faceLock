@@ -121,6 +121,18 @@ def list_users(db_path: Optional[str] = None) -> List[Dict]:
     return [dict(r) for r in rows]
 
 
+def delete_user_by_label(label: str, db_path: Optional[str] = None) -> bool:
+    """Delete a stored face profile by label."""
+    init_db(db_path)
+    conn = get_connection(db_path)
+    cur = conn.cursor()
+    cur.execute("DELETE FROM users WHERE label = ?", (label,))
+    conn.commit()
+    deleted = cur.rowcount > 0
+    conn.close()
+    return deleted
+
+
 def add_locked_app(name: str, exec_cmd: str, icon: Optional[str] = None, desktop_file: Optional[str] = None, locked: bool = True, db_path: Optional[str] = None) -> int:
     init_db(db_path)
     conn = get_connection(db_path)
