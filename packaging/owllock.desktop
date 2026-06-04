@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=OwlLock
+Comment=Lock applications and unlock with face authentication
+Exec=/home/snowowl/Projects/faceLock/scripts/owllock-launcher.sh
+Icon=owllock
+Terminal=false
+Categories=Utility;Security;
+StartupNotify=false

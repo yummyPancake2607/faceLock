@@ -10,9 +10,29 @@ if __package__ in (None, ""):
     if str(project_root) not in sys.path:
         sys.path.insert(0, str(project_root))
 
+from PyQt6.QtCore import QCoreApplication
+
 from src.facelock.database import db
+from src.facelock.auth.guardian import AppLaunchGuardian
 from src.facelock.auth.system_auth import require_system_password
 from src.facelock.gui.main_window import build_app
+
+
+def _run_background(db_path: str | None = None) -> int:
+    db.init_db(db_path)
+    app = QCoreApplication.instance() or QCoreApplication([])
+    app.setApplicationName("OwlLock")
+    AppLaunchGuardian(parent=None, db_path=db_path)
+    return app.exec()
+
+
+def _run_gui(scan_paths: list[str] | None = None, db_path: str | None = None) -> int:
+    db.init_db(db_path)
+    app, window = build_app(scan_paths=scan_paths, db_path=db_path)
+    if not require_system_password(window):
+        return 1
+    window.show()
+    return app.exec()
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -25,14 +45,16 @@ def main(argv: list[str] | None = None) -> int:
         default=None,
         help="Additional .desktop directory to scan (can be repeated)",
     )
+    parser.add_argument(
+        "--background",
+        action="store_true",
+        help="Run the background launcher guard without opening the GUI",
+    )
     args = parser.parse_args(argv)
 
-    db.init_db(args.db_path)
-    app, window = build_app(scan_paths=args.scan_paths, db_path=args.db_path)
-    if not require_system_password(window):
-        return 1
-    window.show()
-    return app.exec()
+    if not args.background:
+        return _run_gui(scan_paths=args.scan_paths, db_path=args.db_path)
+    return _run_background(db_path=args.db_path)
 
 
 if __name__ == "__main__":

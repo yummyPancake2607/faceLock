@@ -33,7 +33,7 @@ def _logo_pixmap(size: int = 72) -> QPixmap:
 
 
 class PasswordPrompt(QDialog):
-    def __init__(self, parent: Optional[QWidget] = None) -> None:
+    def __init__(self, parent: Optional[QWidget] = None, message: str = "Enter your laptop password to open OwlLock.") -> None:
         super().__init__(parent)
         self.setWindowTitle("OwlLock")
         self.setWindowIcon(QIcon(_logo_pixmap(128)))
@@ -98,7 +98,7 @@ class PasswordPrompt(QDialog):
         text_block = QVBoxLayout()
         title = QLabel("OwlLock")
         title.setObjectName("Title")
-        subtitle = QLabel("Enter your laptop password to open OwlLock.")
+        subtitle = QLabel(message)
         subtitle.setObjectName("Subtitle")
         subtitle.setWordWrap(True)
         title.setStyleSheet("background: transparent;")
@@ -130,7 +130,7 @@ class PasswordPrompt(QDialog):
         return self.password_input.text()
 
 
-def require_system_password(parent: Optional[QWidget] = None) -> bool:
+def require_system_password(parent: Optional[QWidget] = None, message: str = "Enter your laptop password to open OwlLock.") -> bool:
     """Prompt for the user's laptop password and verify it with sudo.
 
     The password is not stored. It is only passed to `sudo -S -v` to verify
@@ -140,7 +140,7 @@ def require_system_password(parent: Optional[QWidget] = None) -> bool:
         QMessageBox.critical(parent, "FaceLock", "sudo is not available on this system.")
         return False
 
-    dialog = PasswordPrompt(parent)
+    dialog = PasswordPrompt(parent, message=message)
     if dialog.exec() != QDialog.DialogCode.Accepted:
         return False
     password = dialog.password()

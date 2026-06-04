@@ -27,7 +27,6 @@ from PyQt6.QtWidgets import (
     QWidget,
 )
 
-from src.facelock.auth.system_auth import require_system_password
 from src.facelock.database import db
 from src.facelock.gui.face_enrollment import FaceEnrollmentDialog
 from src.facelock.services import app_scanner
@@ -371,11 +370,6 @@ class FaceRegistrationPanel(QFrame):
         self.register_face_button.setObjectName("PrimaryAction")
         self.register_face_button.clicked.connect(self.register_face)
         buttons.addWidget(self.register_face_button)
-
-        self.refresh_button = QPushButton("Refresh Stored Faces")
-        self.refresh_button.setProperty("secondary", True)
-        self.refresh_button.clicked.connect(self.refresh_status)
-        buttons.addWidget(self.refresh_button)
         buttons.addStretch(1)
         outer.addLayout(buttons)
 
@@ -497,6 +491,7 @@ def build_app(scan_paths: Optional[Iterable[str]] = None, db_path: Optional[str]
     app = QApplication.instance() or QApplication([])
     app.setApplicationName(APP_TITLE)
     app.setWindowIcon(_load_logo_icon())
+    app.setQuitOnLastWindowClosed(False)
     _apply_theme(app)
     window = FaceLockWindow(scan_paths=scan_paths, db_path=db_path)
     return app, window

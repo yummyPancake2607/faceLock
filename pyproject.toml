@@ -3,7 +3,7 @@ requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "facelock"
+name = "owllock"
 version = "0.1.0"
 description = "Linux face-auth app locker"
 requires-python = ">=3.14"
@@ -15,5 +15,5 @@ dependencies = [
 ]
 
 [project.scripts]
-facelock = "src.facelock.app:main"
+owllock = "src.facelock.app:main"
 

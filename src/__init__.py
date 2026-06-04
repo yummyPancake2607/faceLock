@@ -1,1 +1,1 @@
-"""Namespace package for FaceLock source modules."""
+"""Namespace package for OwlLock source modules."""
