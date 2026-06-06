@@ -32,6 +32,10 @@ if not _display and not _wayland:
     except Exception:
         pass
 
+# Default fallback for common X11 setups
+if not _display and not _wayland:
+    _display = ":0"
+
 # Remove any forced offscreen platform
 os.environ.pop("QT_QPA_PLATFORM", None)
 # Set the display back if the launcher saved it

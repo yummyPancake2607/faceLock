@@ -29,7 +29,7 @@ DESKTOP_TEMPLATE = """[Desktop Entry]
 Type=Application
 Name=OwlLock
 Comment=Lock applications and unlock with face authentication
-Exec={venv_python} {ctl_script}
+Exec={venv_python} -m src.facelock.app
 Path={project_root}
 Icon={icon_path}
 Terminal=false
@@ -39,6 +39,8 @@ StartupNotify=false
 
 SERVICE_TEMPLATE = """[Unit]
 Description=OwlLock background service
+After=graphical-session.target
+PartOf=graphical-session.target
 
 [Service]
 Type=simple
@@ -48,7 +50,7 @@ Restart=on-failure
 RestartSec=5
 
 [Install]
-WantedBy=default.target
+WantedBy=graphical-session.target
 """
 
 
@@ -85,11 +87,9 @@ def install(user: bool = True) -> int:
 
     launcher = _launcher_path(project_root)
     venv_python = str(project_root / ".venv" / "bin" / "python3")
-    ctl_script = str(project_root / "scripts" / "owllock-ctl.py")
 
     desktop_text = DESKTOP_TEMPLATE.format(
         venv_python=venv_python,
-        ctl_script=ctl_script,
         project_root=str(project_root),
         icon_path=icon_dst,
     )

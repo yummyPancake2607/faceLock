@@ -24,9 +24,9 @@ echo "---" >> "$LOG_FILE"
 for arg in "$@"; do
     if [ "$arg" = "--background" ]; then
         export QT_QPA_PLATFORM=offscreen
-        export OWLLOCK_DISPLAY="${DISPLAY:-}"
-        export OWLLOCK_WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-}"
-        echo "Saved DISPLAY=$OWLLOCK_DISPLAY WAYLAND_DISPLAY=$OWLLOCK_WAYLAND_DISPLAY" >> "$LOG_FILE"
+        [ -n "${DISPLAY:-}" ] && export OWLLOCK_DISPLAY="$DISPLAY"
+        [ -n "${WAYLAND_DISPLAY:-}" ] && export OWLLOCK_WAYLAND_DISPLAY="$WAYLAND_DISPLAY"
+        echo "Saved DISPLAY=${OWLLOCK_DISPLAY:-unset} WAYLAND_DISPLAY=${OWLLOCK_WAYLAND_DISPLAY:-unset}" >> "$LOG_FILE"
         break
     fi
 done
