@@ -86,7 +86,8 @@ class FaceEnrollmentDialog(QDialog):
 
     def start_capture(self) -> None:
         if not self.camera.open():
-            QMessageBox.critical(self, "OwlLock", "Could not open the camera.")
+            msg = self.camera.error_message or "Could not open the camera."
+            QMessageBox.critical(self, "OwlLock Camera Error", msg)
             return
         self.encodings = []
         self.start_button.setEnabled(False)

@@ -4,13 +4,14 @@ from __future__ import annotations
 import contextlib
 import os
 import signal
+import subprocess
+import sys
 from pathlib import Path
 from typing import Iterable, Optional
 
 from PyQt6.QtCore import QObject, QTimer
 from PyQt6.QtWidgets import QWidget
 
-from src.facelock.auth import launch_auth
 from src.facelock.database import db
 
 
@@ -41,7 +42,7 @@ def _process_exe(pid: int) -> str:
 
 
 class AppLaunchGuardian(QObject):
-    def __init__(self, parent: Optional[QWidget] = None, db_path: Optional[str] = None, interval_ms: int = 1500) -> None:
+    def __init__(self, parent: Optional[QWidget] = None, db_path: Optional[str] = None, interval_ms: int = 200) -> None:
         super().__init__(parent)
         self.db_path = db_path
         self._handled_pids: set[int] = set()
@@ -97,7 +98,11 @@ class AppLaunchGuardian(QObject):
         if not locked_apps:
             return
 
-        for process in self._iter_processes():
+        processes = list(self._iter_processes())
+        print(f"[owllock] poll: {len(processes)} processes, {len(locked_apps)} locked apps",
+              file=sys.stderr)
+
+        for process in processes:
             pid = int(process["pid"])
             if pid in self._handled_pids:
                 continue
@@ -112,26 +117,84 @@ class AppLaunchGuardian(QObject):
 
     def _handle_locked_launch(self, pid: int, app: dict) -> None:
         app_name = app.get("name") or app.get("exec") or "Locked application"
+        print(f"[owllock] locked launch detected: pid={pid} app={app_name}", file=sys.stderr)
         try:
             os.kill(pid, signal.SIGSTOP)
         except ProcessLookupError:
+            print(f"[owllock] pid {pid} vanished before SIGSTOP", file=sys.stderr)
             return
         except PermissionError:
+            print(f"[owllock] permission denied SIGSTOP pid {pid}", file=sys.stderr)
             return
 
-        parent_obj = self.parent()
-        parent_widget = parent_obj if isinstance(parent_obj, QWidget) else None
-        allowed, method = launch_auth.authenticate_locked_launch(
-            app_name=str(app_name),
-            parent=parent_widget,
-            db_path=self.db_path,
-        )
-        if allowed:
+        print(f"[owllock] SIGSTOP'd pid {pid}, spawning auth-prompt", file=sys.stderr)
+        method = self._run_auth_prompt(str(app_name))
+
+        if method:
+            print(f"[owllock] auth succeeded for '{app_name}' via {method}, SIGCONT pid {pid}",
+                  file=sys.stderr)
             db.add_access_log(str(app_name), "allowed", note=f"authenticated via {method}", db_path=self.db_path)
             with contextlib.suppress(ProcessLookupError, PermissionError):
                 os.kill(pid, signal.SIGCONT)
             return
 
+        print(f"[owllock] auth failed for '{app_name}', SIGKILL pid {pid}", file=sys.stderr)
         db.add_access_log(str(app_name), "denied", note="authentication failed", db_path=self.db_path)
         with contextlib.suppress(ProcessLookupError, PermissionError):
             os.kill(pid, signal.SIGKILL)
+
+    def _run_auth_prompt(self, app_name: str) -> str | None:
+        """Spawn the auth dialog in a separate process with the user's display."""
+        project_root = Path(__file__).resolve().parents[3]
+        script = project_root / "scripts" / "auth-prompt.py"
+        python = project_root / ".venv" / "bin" / "python3"
+
+        if not script.exists() or not python.exists():
+            python_bin = sys.executable
+        else:
+            python_bin = str(python)
+
+        cmd = [python_bin, str(script), app_name]
+        if self.db_path:
+            cmd += ["--db", self.db_path]
+
+        # Pass display env vars but strip offscreen so the dialog is visible
+        env = os.environ.copy()
+        env.pop("QT_QPA_PLATFORM", None)
+        env.pop("QT_QPA_PLATFORMTHEME", None)
+
+        print(f"[owllock] spawning auth-prompt for '{app_name}': {' '.join(cmd)}",
+              file=sys.stderr)
+
+        try:
+            result = subprocess.run(
+                cmd,
+                capture_output=True,
+                text=True,
+                timeout=120,
+                env=env,
+            )
+        except subprocess.TimeoutExpired:
+            print(f"[owllock] auth-prompt timed out for '{app_name}'", file=sys.stderr)
+            return None
+        except FileNotFoundError as exc:
+            print(f"[owllock] auth-prompt binary not found for '{app_name}': {exc}",
+                  file=sys.stderr)
+            return None
+
+        if result.returncode == 0:
+            method = result.stdout.strip()
+            if method in ("face", "password"):
+                print(f"[owllock] auth-prompt succeeded for '{app_name}': {method}",
+                      file=sys.stderr)
+                return method
+            print(f"[owllock] auth-prompt returned unknown method '{method}' for '{app_name}'",
+                  file=sys.stderr)
+            return None
+
+        print(f"[owllock] auth-prompt failed (rc={result.returncode}) for '{app_name}':",
+              file=sys.stderr)
+        if result.stderr:
+            for line in result.stderr.strip().splitlines():
+                print(f"[owllock]   {line}", file=sys.stderr)
+        return None

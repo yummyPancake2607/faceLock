@@ -2,8 +2,9 @@
 Type=Application
 Name=OwlLock
 Comment=Lock applications and unlock with face authentication
-Exec=/home/snowowl/Projects/faceLock/scripts/owllock-launcher.sh
-Icon=owllock
+Exec={venv_python} {ctl_script}
+Path={project_root}
+Icon={icon_path}
 Terminal=false
 Categories=Utility;Security;
 StartupNotify=false

@@ -10,23 +10,25 @@ if __package__ in (None, ""):
     if str(project_root) not in sys.path:
         sys.path.insert(0, str(project_root))
 
-from PyQt6.QtCore import QCoreApplication
+from PyQt6.QtWidgets import QApplication
 
 from src.facelock.database import db
 from src.facelock.auth.guardian import AppLaunchGuardian
 from src.facelock.auth.system_auth import require_system_password
+from src.facelock.auth.display_env import save_display_env
 from src.facelock.gui.main_window import build_app
 
 
 def _run_background(db_path: str | None = None) -> int:
     db.init_db(db_path)
-    app = QCoreApplication.instance() or QCoreApplication([])
+    app = QApplication.instance() or QApplication([])
     app.setApplicationName("OwlLock")
-    AppLaunchGuardian(parent=None, db_path=db_path)
+    guardian = AppLaunchGuardian(parent=None, db_path=db_path)
     return app.exec()
 
 
 def _run_gui(scan_paths: list[str] | None = None, db_path: str | None = None) -> int:
+    save_display_env()
     db.init_db(db_path)
     app, window = build_app(scan_paths=scan_paths, db_path=db_path)
     if not require_system_password(window):

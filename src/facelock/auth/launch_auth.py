@@ -65,11 +65,22 @@ class FaceUnlockDialog(QDialog):
         self.known_encodings: list[tuple[str, np.ndarray]] = []
         self._active = False
         self._timed_out = False
+        self._cancelled = False
+        self._camera_ok = False
 
         for row in db.list_users(self.db_path):
             encoding = db.get_user_encoding(row["label"], self.db_path)
             if encoding is not None:
                 self.known_encodings.append((row["label"], encoding))
+
+        # Open camera and pre-load face detection model before dialog is shown
+        if self.known_encodings:
+            self._camera_ok = self.camera.open()
+            if self._camera_ok:
+                # Pre-load HOG model with a tiny frame so face detection is instant later
+                _warmup = np.zeros((100, 100, 3), dtype=np.uint8)
+                detector.find_face_locations(_warmup, model="hog")
+        self._camera_error = self.camera.error_message if not self._camera_ok else ""
 
         root = QVBoxLayout(self)
         root.setSpacing(12)
@@ -101,7 +112,7 @@ class FaceUnlockDialog(QDialog):
 
         cancel = QPushButton("Cancel")
         cancel.setProperty("secondary", True)
-        cancel.clicked.connect(self.reject)
+        cancel.clicked.connect(self._cancel)
         actions.addWidget(cancel)
 
         root.addLayout(actions)
@@ -115,8 +126,8 @@ class FaceUnlockDialog(QDialog):
             self.status.setText("No face profiles are registered yet.")
             self.reject()
             return
-        if not self.camera.open():
-            self.status.setText("Could not open the camera.")
+        if not self._camera_ok:
+            self.status.setText(self._camera_error or "Could not open the camera.")
             self.reject()
             return
         self._active = True
@@ -141,6 +152,11 @@ class FaceUnlockDialog(QDialog):
         self._active = False
 
     def _close_with_rejection(self) -> None:
+        self._close_for_password()
+        super().reject()
+
+    def _cancel(self) -> None:
+        self._cancelled = True
         self._close_for_password()
         super().reject()
 
@@ -193,6 +209,7 @@ class FaceUnlockDialog(QDialog):
         self._close_with_rejection()
 
     def closeEvent(self, event) -> None:
+        self._cancelled = True
         self._close_for_password()
         super().closeEvent(event)
 
@@ -206,6 +223,9 @@ def authenticate_locked_launch(
     dialog = FaceUnlockDialog(app_name=app_name, db_path=db_path, parent=parent)
     if dialog.exec() == QDialog.DialogCode.Accepted:
         return True, "face"
+
+    if getattr(dialog, "_cancelled", False):
+        return False, "denied"
 
     timed_out = getattr(dialog, "_timed_out", False)
     timeout_message = (

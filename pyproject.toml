@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "owllock"
 version = "0.1.0"
 description = "Linux face-auth app locker"
-requires-python = ">=3.14"
+requires-python = ">=3.10"
 dependencies = [
 	"numpy",
 	"PyQt6",

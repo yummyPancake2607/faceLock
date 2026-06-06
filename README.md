@@ -1,99 +1,91 @@
 # OwlLock
 
-OwlLock is a Linux desktop security tool that keeps a background guardian running all the time and only opens the GUI when you need it.
-
-The security model is simple:
-
-- the background service starts automatically after boot through systemd user lingering
-- the service watches for locked applications in the background
-- the GUI is launched only on demand
-- when the GUI opens, it asks for your password first
-
-## How It Works
-
-OwlLock is split into three parts:
-
-1. a background service that stays active after boot
-2. a launcher wrapper that always runs from the project root and virtual environment
-3. a GUI that handles face enrollment, app locking, and password-gated management
-
-The background service is installed as a systemd user service. During installation, OwlLock also enables user lingering, which allows the user service to start right after boot instead of waiting for a manual login session.
-
-The GUI is not started automatically. You open it from the application menu only when you want to manage locked apps, register faces, or change settings.
+OwlLock is a Linux desktop security tool that locks applications and unlocks them using **face recognition**. A background guardian monitors for locked app launches and prompts for face (or password) authentication.
 
 ## One-Line Install
 
-After cloning the repository, run:
-
 ```bash
+git clone <repo-url> && cd facelock
 bash install.sh
 ```
 
 That single command will:
 
-- create or reuse the local `.venv`
-- install the Python package in editable mode
-- install the desktop launcher and icon
-- install the background systemd user service
-- enable user lingering so the service can start after boot
-- enable and start the OwlLock service for the current user
-
-## What Gets Installed
-
-The installer writes these user files:
-
-- `~/.local/share/applications/owllock.desktop`
-- `~/.local/share/icons/hicolor/256x256/apps/owllock.png`
-- `~/.config/systemd/user/owllock.service`
-
-It also enables the user service so it starts automatically on boot.
-
-## Launching OwlLock
-
-- To open the GUI, use the app menu and click **OwlLock**
-- The GUI asks for your password before it opens
-- The background security service keeps running even when the GUI is closed
-
-## Manual Commands
-
-If you want to run the pieces directly:
-
-```bash
-# install everything
-bash install.sh
-
-# inspect the service
-systemctl --user status owllock.service
-
-# restart the background guardian
-systemctl --user restart owllock.service
-
-# open the GUI from the project
-./.venv/bin/python3 -m src.facelock.app
-```
+- detect your Linux distro and install system dependencies (cmake, boost, mesa, etc.)
+- verify your camera permissions (video group)
+- create a Python virtual environment (`.venv`)
+- install OwlLock and all its Python dependencies (dlib, face-recognition, OpenCV, PyQt6)
+- install the desktop launcher, app icon, and systemd background service
+- enable and start the background guardian service
 
 ## Requirements
 
-OwlLock expects a Linux desktop environment with:
+- **Python 3.10+** (tested up to 3.14)
+- **Linux** with systemd (for the background service)
+- A working webcam
+- An X11 or Wayland desktop environment (GNOME, KDE, etc.)
 
-- Python 3
-- systemd user services
-- a working webcam for face authentication
-- the system packages required by Qt/OpenCV/face-recognition
+## Usage
 
-If the GUI does not show immediately after install, log out and back in once so the desktop menu refreshes.
+| Command | What it does |
+|---------|-------------|
+| `bash install.sh` | Full install |
+| `bash install.sh --uninstall` | Remove all OwlLock files |
+| `bash install.sh --no-system-deps` | Skip system package install |
+| `bash install.sh --help` | Show help |
+
+### Launching
+
+- Open **OwlLock** from the application menu
+- Or run: `.venv/bin/python -m src.facelock.app`
+
+The GUI lets you:
+1. Register your face (20 samples → saved to SQLite)
+2. Browse installed applications
+3. Lock/unlock any app with a toggle
+4. Manage face profiles (list/delete)
+
+### Background Service
+
+The background guardian runs as a systemd user service. It monitors `/proc` every 1.5 seconds. When a locked app is detected:
+
+- `SIGSTOP` pauses the process
+- A face unlock dialog appears
+- On success: `SIGCONT` resumes the app
+- On failure/denial: `SIGKILL` terminates the app
+
+Check status:
+
+```bash
+systemctl --user status owllock.service
+```
+
+## Uninstall
+
+```bash
+bash install.sh --uninstall
+```
+
+This removes: desktop entry, icon, systemd service, cache, and optionally the database and virtual environment.
 
 ## Project Layout
 
-- `install.sh` - one-line installer
-- `scripts/install_desktop.py` - installs the launcher, icon, and service
-- `scripts/owllock-launcher.sh` - wrapper that runs OwlLock from the repo root
-- `packaging/owllock.desktop` - desktop menu entry
-- `packaging/owllock.service` - systemd user service for the background guardian
-- `src/facelock/` - application code
-
-## Notes
-
-- The GUI is intentionally not part of the boot process.
-- The background guardian is the always-on security component.
-- If you want true pre-login system-wide enforcement, that is a separate system service design from the current user-service setup.
+```
+├── install.sh                  # One-line installer
+├── pyproject.toml              # Python package config
+├── scripts/
+│   ├── auth-prompt.py          # Standalone face auth dialog (spawned by guardian)
+│   ├── install_desktop.py      # Installs .desktop, icon, systemd service
+│   └── owllock-launcher.sh     # Launcher wrapper with env setup
+├── packaging/
+│   ├── owllock.desktop         # Desktop entry template
+│   └── owllock.service         # Systemd service template
+├── src/facelock/               # Application source
+│   ├── app.py                  # Entry point
+│   ├── auth/                   # Camera, face detection, encoding, guardian
+│   ├── database/               # SQLite storage
+│   ├── gui/                    # PyQt6 dialogs and main window
+│   └── services/               # Desktop file scanner
+└── assests/
+    └── logo.png                # App icon
+```

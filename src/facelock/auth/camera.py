@@ -13,10 +13,19 @@ class Camera:
     def __init__(self, camera_index: int = 0) -> None:
         self.camera_index = camera_index
         self.cap: t.Optional[cv2.VideoCapture] = None
+        self.error_message: str = ""
 
     def open(self) -> bool:
         self.cap = cv2.VideoCapture(self.camera_index)
-        return bool(self.cap and self.cap.isOpened())
+        if not self.cap:
+            self.error_message = f"Could not create VideoCapture for index {self.camera_index}"
+            return False
+        if not self.cap.isOpened():
+            self.error_message = f"Camera index {self.camera_index} exists but could not be opened. Check device permissions (/dev/video{self.camera_index}) or if another app is using it."
+            self.cap = None
+            return False
+        self.error_message = ""
+        return True
 
     def read_frame(self) -> t.Optional[np.ndarray]:
         if self.cap is None or not self.cap.isOpened():

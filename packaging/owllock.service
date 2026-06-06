@@ -3,7 +3,8 @@ Description=OwlLock background service
 
 [Service]
 Type=simple
-ExecStart=/home/snowowl/Projects/faceLock/scripts/owllock-launcher.sh --background
+ExecStart={launcher} --background
+WorkingDirectory={workdir}
 Restart=on-failure
 RestartSec=5
 

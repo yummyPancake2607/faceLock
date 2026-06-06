@@ -29,11 +29,26 @@ DESKTOP_TEMPLATE = """[Desktop Entry]
 Type=Application
 Name=OwlLock
 Comment=Lock applications and unlock with face authentication
-Exec={exec_cmd}
+Exec={venv_python} {ctl_script}
+Path={project_root}
 Icon={icon_path}
 Terminal=false
 Categories=Utility;Security;
 StartupNotify=false
+"""
+
+SERVICE_TEMPLATE = """[Unit]
+Description=OwlLock background service
+
+[Service]
+Type=simple
+ExecStart={launcher} --background
+WorkingDirectory={workdir}
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=default.target
 """
 
 
@@ -58,7 +73,6 @@ def install(user: bool = True) -> int:
 
     project_root = Path(__file__).resolve().parents[1]
     logo_src = project_root / "assests" / "logo.png"
-    service_src = project_root / "packaging" / SERVICE_FILENAME
     if not logo_src.exists():
         print("Warning: logo.png not found in assests/; skipping icon install")
         icon_dst = "owllock"
@@ -69,28 +83,34 @@ def install(user: bool = True) -> int:
         icon_dst_path.chmod(icon_dst_path.stat().st_mode | stat.S_IRUSR | stat.S_IRGRP | stat.S_IROTH)
         icon_dst = str(icon_dst_path)
 
-    exec_cmd = _launcher_path(project_root)
+    launcher = _launcher_path(project_root)
+    venv_python = str(project_root / ".venv" / "bin" / "python3")
+    ctl_script = str(project_root / "scripts" / "owllock-ctl.py")
 
-    desktop_text = DESKTOP_TEMPLATE.format(exec_cmd=exec_cmd, icon_path=icon_dst)
+    desktop_text = DESKTOP_TEMPLATE.format(
+        venv_python=venv_python,
+        ctl_script=ctl_script,
+        project_root=str(project_root),
+        icon_path=icon_dst,
+    )
     desktop_path = applications_dir / DESKTOP_FILENAME
     desktop_path.write_text(desktop_text, encoding="utf-8")
     desktop_path.chmod(0o644)
 
-    if service_src.exists():
-        service_dst = systemd_dir / SERVICE_FILENAME
-        shutil.copy2(service_src, service_dst)
-        service_dst.chmod(0o644)
-        if user:
-            import subprocess
+    service_text = SERVICE_TEMPLATE.format(launcher=launcher, workdir=str(project_root))
+    service_dst = systemd_dir / SERVICE_FILENAME
+    service_dst.write_text(service_text, encoding="utf-8")
+    service_dst.chmod(0o644)
+    if user:
+        import subprocess
 
-            subprocess.run(["systemctl", "--user", "daemon-reload"], check=False)
-            subprocess.run(["systemctl", "--user", "enable", "--now", SERVICE_FILENAME], check=False)
+        subprocess.run(["systemctl", "--user", "daemon-reload"], check=False)
+        subprocess.run(["systemctl", "--user", "enable", "--now", SERVICE_FILENAME], check=False)
 
     print(f"Installed {DESKTOP_FILENAME} -> {desktop_path}")
     if logo_src.exists():
         print(f"Installed icon -> {icon_dst}")
-    if service_src.exists():
-        print(f"Installed systemd service -> {service_dst}")
+    print(f"Installed systemd service -> {service_dst}")
     print("You may need to run 'update-desktop-database' or re-login for changes to appear.")
     return 0
 

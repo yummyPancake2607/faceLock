@@ -18,6 +18,19 @@ echo "PROJECT_ROOT=$PROJECT_ROOT" >> "$LOG_FILE"
 echo "ENV snapshot:" >> "$LOG_FILE"
 env >> "$LOG_FILE"
 echo "---" >> "$LOG_FILE"
+
+# Use offscreen Qt platform when running in background mode;
+# save display variables so auth-prompt can restore them.
+for arg in "$@"; do
+    if [ "$arg" = "--background" ]; then
+        export QT_QPA_PLATFORM=offscreen
+        export OWLLOCK_DISPLAY="${DISPLAY:-}"
+        export OWLLOCK_WAYLAND_DISPLAY="${WAYLAND_DISPLAY:-}"
+        echo "Saved DISPLAY=$OWLLOCK_DISPLAY WAYLAND_DISPLAY=$OWLLOCK_WAYLAND_DISPLAY" >> "$LOG_FILE"
+        break
+    fi
+done
+
 if [ -x "$VENV_PY" ]; then
     echo "Using venv python: $VENV_PY" >> "$LOG_FILE"
     # Ensure Python can import the local src/ package by running from project root

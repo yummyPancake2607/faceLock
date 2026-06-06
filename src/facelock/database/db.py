@@ -9,6 +9,7 @@ import io
 import os
 import sqlite3
 import datetime
+from datetime import timezone
 from typing import Iterable, List, Optional, Dict
 
 import numpy as np
@@ -90,7 +91,7 @@ def save_user_encoding(label: str, encoding: np.ndarray, db_path: Optional[str] 
     conn = get_connection(db_path)
     cur = conn.cursor()
     blob = _np_to_blob(encoding)
-    ts = datetime.datetime.utcnow().isoformat()
+    ts = datetime.datetime.now(timezone.utc).isoformat()
     cur.execute(
         "INSERT INTO users(label, encoding, created_at) VALUES(?,?,?) ON CONFLICT(label) DO UPDATE SET encoding=excluded.encoding, created_at=excluded.created_at",
         (label, blob, ts),
@@ -273,7 +274,7 @@ def add_access_log(app_name: str, result: str, note: Optional[str] = None, db_pa
     init_db(db_path)
     conn = get_connection(db_path)
     cur = conn.cursor()
-    ts = datetime.datetime.utcnow().isoformat()
+    ts = datetime.datetime.now(timezone.utc).isoformat()
     cur.execute("INSERT INTO access_logs(ts, app_name, result, note) VALUES(?,?,?,?)", (ts, app_name, result, note))
     conn.commit()
     rowid = cur.lastrowid
