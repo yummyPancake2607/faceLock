@@ -675,13 +675,13 @@ fi
 
 # 11. Start service (Linux only)
 if [ "$OS" != "macos" ] && command -v systemctl >/dev/null 2>&1; then
-    log "Starting OwlLock background service..."
-    if systemctl --user daemon-reload 2>/dev/null && systemctl --user start "$OWLLOCK_SERVICE" 2>/dev/null; then
-        ok "Background service started"
+    log "Starting OwlLock background service and enabling for boot..."
+    if systemctl --user daemon-reload 2>/dev/null && systemctl --user enable --now "$OWLLOCK_SERVICE" 2>/dev/null; then
+        ok "Background service started and enabled to start on boot"
     else
-        warn "Could not start systemd service. You may need to log out and back in, or run:"
+        warn "Could not enable/start systemd service. You may need to run manually:"
         warn "  systemctl --user daemon-reload"
-        warn "  systemctl --user start owllock.service"
+        warn "  systemctl --user enable --now owllock.service"
     fi
 fi
 
